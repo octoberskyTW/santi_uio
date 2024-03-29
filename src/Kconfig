@@ -1,0 +1,5 @@
+config SANTI_UIO
+	tristate "Three Body Problem Userspace IO"
+	default n
+	help
+	  Support for SANTI driver to use Linux kernel UIO feature.
