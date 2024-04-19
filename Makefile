@@ -1,68 +1,52 @@
-# SPDX-Liscense-Identifier: GPL-2.0-or-later
+# All rights reserved.
 #
-# Copyright (C) 2024 Dung-Ru Tsai
-#
-# Author: Dungru Tsai <dungru.tw@gmail.com>
-#
+# This is free software, licensed under the GNU General Public License v2.
+# See /LICENSE for more information.
 
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=santi_uio
-PKG_RELEASE:=1
-PKG_BUILD_DIR:=$(KERNEL_BUILD_DIR)/$(PKG_NAME)
+PKG_FILE_DEPENDS := $(SRC_DIR)
 include $(INCLUDE_DIR)/package.mk
-include $(INCLUDE_DIR)/package-defaults.mk
-
-# For package initialization such as menuconfig or description etc.
-UIO_KERNEL_PKGS:=
-UIO_PKGS:=
-
-UIO_KERNEL_PKGS+= \
-	santi_uio
-
-ifeq ($(CONFIG_PACKAGE_kmod-santi_uio),y)
-EXTRA_KCONFIG+= \
-	CONFIG_SANTI_UIO=$(CONFIG_SANTI_UIO)
-endif
 
 define KernelPackage/santi_uio
-  CATEGORY:=MTK Properties
-  SUBMENU:=Drivers
+  CATEGORY:=Kernel modules
+  SUBMENU:=Other modules
+  MENU:=1
   TITLE:=kernel santi_uio
-  VERSION:=$(LINUX_VERSION)-$(BOARD)-$(PKG_RELEASE)
-  FILES:= $(PKG_BUILD_DIR)/santi_uio.$(LINUX_KMOD_SUFFIX)
+  FILES:= $(PKG_BUILD_DIR)/santi_uio.ko
   AUTOLOAD:=$(call AutoLoad,46,santi_uio)
 endef
 
-define KernelPackage/santi_uio/description
-	SANTI Userspace IO Mode
-endef
+EXTRA_KCONFIG:= \
+	CONFIG_SANTI_UIO=m
 
-EXTRA_CFLAGS+= \
+EXTRA_CFLAGS:= \
 	$(patsubst CONFIG_%, -DCONFIG_%=1, $(patsubst %=m,%,$(filter %=m,$(EXTRA_KCONFIG)))) \
-	$(patsubst CONFIG_%, -DCONFIG_%=1, $(patsubst %=y,%,$(filter %=y,$(EXTRA_KCONFIG))))
-
-EXTRA_CFLAGS+= -Wall -Werror
+	$(patsubst CONFIG_%, -DCONFIG_%=1, $(patsubst %=y,%,$(filter %=y,$(EXTRA_KCONFIG)))) \
 
 define Build/Prepare
-# $(CP) -r `find ./src -maxdepth 1 | grep -v ".git"` $(PKG_BUILD_DIR)/
 	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) ./src/* $(PKG_BUILD_DIR)
+	cp -rf ./src/* $(PKG_BUILD_DIR)
 endef
+
+MAKE_OPTS:= \
+	$(KERNEL_MAKE_FLAGS) \
+	M="$(PKG_BUILD_DIR)" \
+	EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+	$(EXTRA_KCONFIG)
 
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" \
-		$(KERNEL_MAKE_FLAGS) \
-		M="$(PKG_BUILD_DIR)" \
-		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
-		$(EXTRA_KCONFIG) \
+		$(MAKE_OPTS) \
 		modules
 endef
 
-define KernelPackage/santi_uio/install
-	$(INSTALL_DIR) $(1)/lib/firmware/
+define Package/santi_uio/install
+	$(INSTALL_DIR) $(1)/lib/modules/$(LINUX_VERSION)
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/santi_uio.ko $(1)/lib/modules/$(LINUX_VERSION)
 endef
 
-$(foreach KERNEL_PKG,$(UIO_KERNEL_PKGS),$(eval $(call KernelPackage,$(KERNEL_PKG))))
-$(foreach PKG,$(UIO_PKGS),$(eval $(call BuildPackage,$(PKG))))
+$(eval $(call KernelPackage,santi_uio))
+

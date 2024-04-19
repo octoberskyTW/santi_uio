@@ -9,7 +9,7 @@ static int __init santi_uio_init(void)
 
 static void __exit santi_uio_exit(void)
 {
-    printk("Exit\n");
+    printk("Goodbye, world SANTI UIO\n");
 }
 
 module_init(santi_uio_init);
