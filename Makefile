@@ -11,12 +11,22 @@ PKG_FILE_DEPENDS := $(SRC_DIR)
 include $(INCLUDE_DIR)/package.mk
 
 define KernelPackage/santi_uio
-  CATEGORY:=Kernel modules
-  SUBMENU:=Other modules
-  MENU:=1
-  TITLE:=kernel santi_uio
-  FILES:= $(PKG_BUILD_DIR)/santi_uio.ko
-  AUTOLOAD:=$(call AutoLoad,46,santi_uio)
+	CATEGORY:=Kernel modules
+	SUBMENU:=Other modules
+	KCONFIG:=CONFIG_UIO=y \
+	  CONFIG_UIO_CIF=n \
+	  CONFIG_UIO_PDRV_GENIRQ=n \
+	  CONFIG_UIO_DMEM_GENIRQ=n \
+	  CONFIG_UIO_AEC=n \
+	  CONFIG_UIO_SERCOS3=n \
+	  CONFIG_UIO_PCI_GENERIC=n \
+	  CONFIG_UIO_NETX=n \
+	  CONFIG_UIO_PRUSS=n \
+	  CONFIG_UIO_MF624=n
+	TITLE:=kernel santi_uio
+	FILES:=$(PKG_BUILD_DIR)/santi_uio.ko
+	AUTOLOAD:=$(call AutoLoad,46,santi_uio)
+	MENU:=1
 endef
 
 EXTRA_KCONFIG:= \
@@ -43,7 +53,7 @@ define Build/Compile
 		modules
 endef
 
-define Package/santi_uio/install
+define KernelPackage/santi_uio/install
 	$(INSTALL_DIR) $(1)/lib/modules/$(LINUX_VERSION)
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/santi_uio.ko $(1)/lib/modules/$(LINUX_VERSION)
 endef
