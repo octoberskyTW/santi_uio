@@ -23,6 +23,8 @@ static int santi_uio_probe(struct platform_device *pdev)
     struct uio_info *info = &su->uinfo;
 	struct resource res;
 
+    pr_info("Entering %s\n", __func__);
+
 	fe_mem = of_parse_phandle(pdev->dev.of_node, "fe_mem", 0);
 	if (!fe_mem) {
 		pr_err("%s: can not find fe_mem node failed\n", __FUNCTION__);
@@ -33,7 +35,8 @@ static int santi_uio_probe(struct platform_device *pdev)
 		return -ENXIO;
     }
 	/* map fe_mem */
-	su->base = devm_ioremap_resource(&pdev->dev, &res);
+	//su->base = devm_ioremap_resource(&pdev->dev, &res);
+    su->base = devm_ioremap(&pdev->dev, res.start, resource_size(&res));
 	if (IS_ERR(su->base)) {
         pr_err("%s: devm_ioremap_resource failed\n", __FUNCTION__);
         return PTR_ERR(su->base);
@@ -43,10 +46,13 @@ static int santi_uio_probe(struct platform_device *pdev)
 
     info->name = "santi_uio_device";
 	info->version = "0.0.1";
-	info->mem[0].addr = su->base;
-    pr_info("%s: 0x%llx\n", __FUNCTION__, info->mem[0].addr);
+	info->mem[0].internal_addr = su->base;
+    pr_info("%s: Virtual Address 0x%llx\n", __FUNCTION__, info->mem[0].internal_addr);
+    info->mem[0].addr = res.start;
+    pr_info("%s: Physical Address 0x%llx\n", __FUNCTION__, info->mem[0].addr);
 	info->mem[0].size = resource_size(&res);
 	info->mem[0].memtype = UIO_MEM_PHYS;
+
     ret = uio_register_device(&pdev->dev, info);
 	 if (ret) {
         pr_err("%s: uio_register_device failed: %p\n", __FUNCTION__, ERR_PTR(ret));
