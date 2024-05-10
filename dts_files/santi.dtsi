@@ -928,7 +928,7 @@
 	};
 
 	santi_uio: uio@15100000 {
-		compatible = "mediatek,uio";
+		compatible = "mediatek,santi_uio";
 		fe_mem = <&eth>;
 	};
 
