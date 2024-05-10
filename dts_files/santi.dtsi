@@ -927,6 +927,11 @@
 		fe_mem = <&eth>;
 	};
 
+	santi_uio: uio@15100000 {
+		compatible = "mediatek,uio";
+		fe_mem = <&eth>;
+	};
+
 	sgmiisys0: syscon@10060000 {
 		compatible = "mediatek,mt7988-sgmiisys",
 			     "mediatek,mt7988-sgmiisys_0",
