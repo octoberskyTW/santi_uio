@@ -1,3 +1,4 @@
+#include "santi_uio_main.h"
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -5,78 +6,74 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uio_driver.h>
-#include "santi_uio_main.h"
 
 
 #define FE_INT_STATUS 0x08
 #define FE_INT_ENABLE 0x0c
 
 enum mtk_fe_event_id {
-	MTK_EVENT_FORCE		= 0,
-	MTK_EVENT_WARM_CNT	= 1,
-	MTK_EVENT_COLD_CNT	= 2,
-	MTK_EVENT_TOTAL_CNT	= 3,
-	MTK_EVENT_FQ_EMPTY	= 8,
-	MTK_EVENT_TSO_FAIL	= 12,
-	MTK_EVENT_TSO_ILLEGAL	= 13,
-	MTK_EVENT_TSO_ALIGN	= 14,
-	MTK_EVENT_RFIFO_OV	= 18,
-	MTK_EVENT_RFIFO_UF	= 19,
+    MTK_EVENT_FORCE = 0,
+    MTK_EVENT_WARM_CNT = 1,
+    MTK_EVENT_COLD_CNT = 2,
+    MTK_EVENT_TOTAL_CNT = 3,
+    MTK_EVENT_FQ_EMPTY = 8,
+    MTK_EVENT_TSO_FAIL = 12,
+    MTK_EVENT_TSO_ILLEGAL = 13,
+    MTK_EVENT_TSO_ALIGN = 14,
+    MTK_EVENT_RFIFO_OV = 18,
+    MTK_EVENT_RFIFO_UF = 19,
     MTK_MAC1_LINK = 24,
     MTK_MAC2_LINK = 25,
 };
 
-char* mtk_fe_event_name[32] = {
-	[MTK_EVENT_FORCE]	= "Force",
-	[MTK_EVENT_WARM_CNT]	= "Warm",
-	[MTK_EVENT_COLD_CNT]	= "Cold",
-	[MTK_EVENT_TOTAL_CNT]	= "Total",
-	[MTK_EVENT_FQ_EMPTY]	= "FQ Empty",
-	[MTK_EVENT_TSO_FAIL]	= "TSO Fail",
-	[MTK_EVENT_TSO_ILLEGAL]	= "TSO Illegal",
-	[MTK_EVENT_TSO_ALIGN]	= "TSO Align",
-	[MTK_EVENT_RFIFO_OV]	= "RFIFO OV",
-	[MTK_EVENT_RFIFO_UF]	= "RFIFO UF",
-    [MTK_MAC1_LINK]	= "MAC1 LINK STAT CHANGE",
-    [MTK_MAC2_LINK]	= "MAC2 LINK STAT CHANGE",
+char *mtk_fe_event_name[32] = {
+    [MTK_EVENT_FORCE] = "Force",
+    [MTK_EVENT_WARM_CNT] = "Warm",
+    [MTK_EVENT_COLD_CNT] = "Cold",
+    [MTK_EVENT_TOTAL_CNT] = "Total",
+    [MTK_EVENT_FQ_EMPTY] = "FQ Empty",
+    [MTK_EVENT_TSO_FAIL] = "TSO Fail",
+    [MTK_EVENT_TSO_ILLEGAL] = "TSO Illegal",
+    [MTK_EVENT_TSO_ALIGN] = "TSO Align",
+    [MTK_EVENT_RFIFO_OV] = "RFIFO OV",
+    [MTK_EVENT_RFIFO_UF] = "RFIFO UF",
+    [MTK_MAC1_LINK] = "MAC1 LINK STAT CHANGE",
+    [MTK_MAC2_LINK] = "MAC2 LINK STAT CHANGE",
 };
 
 
 void santi_uio_w32(struct santi_uio_ctrlblk_t *su_ctrl, u32 val, unsigned reg)
 {
-	__raw_writel(val, su_ctrl->base + reg);
+    __raw_writel(val, su_ctrl->base + reg);
 }
 
 u32 santi_uio_r32(struct santi_uio_ctrlblk_t *su_ctrl, unsigned reg)
 {
-	return __raw_readl(su_ctrl->base + reg);
+    return __raw_readl(su_ctrl->base + reg);
 }
 
 static irqreturn_t fe_irqhandler(int irq, struct uio_info *dev_info)
 {
-	struct santi_uio_ctrlblk_t *su_ctrl = dev_info->priv;
-	u32 status = 0, val = 0;
+    struct santi_uio_ctrlblk_t *su_ctrl = dev_info->priv;
+    u32 status = 0, val = 0;
 
     status = santi_uio_r32(su_ctrl, FE_INT_STATUS);
     pr_info("[%s] Trigger FE Misc ISR: 0x%x\n", __func__, status);
 
-	while (status) {
-		val = ffs((unsigned int)status) - 1;
-		status &= ~(1 << val);
+    while (status) {
+        val = ffs((unsigned int) status) - 1;
+        status &= ~(1 << val);
 
-		if ((val == MTK_EVENT_TSO_FAIL) ||
-		    (val == MTK_EVENT_TSO_ILLEGAL) ||
-		    (val == MTK_EVENT_TSO_ALIGN) ||
-		    (val == MTK_EVENT_RFIFO_OV) ||
-		    (val == MTK_EVENT_RFIFO_UF) ||
-            (val == MTK_MAC1_LINK) ||
+        if ((val == MTK_EVENT_TSO_FAIL) || (val == MTK_EVENT_TSO_ILLEGAL) ||
+            (val == MTK_EVENT_TSO_ALIGN) || (val == MTK_EVENT_RFIFO_OV) ||
+            (val == MTK_EVENT_RFIFO_UF) || (val == MTK_MAC1_LINK) ||
             (val == MTK_MAC2_LINK))
-			pr_info("[%s] Detect FE event: %s !\n", __func__,
-				mtk_fe_event_name[val]);
-	}
+            pr_info("[%s] Detect FE event: %s !\n", __func__,
+                    mtk_fe_event_name[val]);
+    }
     /*reset interrupt status CR*/
     santi_uio_w32(su_ctrl, 0xFFFFFFFF, FE_INT_STATUS);
-	return IRQ_HANDLED;
+    return IRQ_HANDLED;
 }
 
 static int santi_uio_probe(struct platform_device *pdev)
@@ -157,7 +154,7 @@ static int santi_uio_probe(struct platform_device *pdev)
     pr_info("%s: SANTI PROBE P.A.S.S\n", __FUNCTION__);
     return 0;
 err_uio_register_device:
-    if(info->mem[0].internal_addr)
+    if (info->mem[0].internal_addr)
 
         devm_iounmap(&pdev->dev, info->mem[0].internal_addr);
     pr_info("%s: SANTI PROBE F.A.I.L\n", __FUNCTION__);
