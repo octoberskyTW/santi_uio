@@ -8,25 +8,76 @@
 #include "santi_uio_main.h"
 
 
-#if 0
-//static struct santi_uio_ctrlblk_t su_blk = {0};
+#define FE_INT_STATUS 0x08
+#define FE_INT_ENABLE 0x0c
 
-static irqreturn_t santi_uio_irqhandler(int irq, struct uio_info *dev_info)
+enum mtk_fe_event_id {
+	MTK_EVENT_FORCE		= 0,
+	MTK_EVENT_WARM_CNT	= 1,
+	MTK_EVENT_COLD_CNT	= 2,
+	MTK_EVENT_TOTAL_CNT	= 3,
+	MTK_EVENT_FQ_EMPTY	= 8,
+	MTK_EVENT_TSO_FAIL	= 12,
+	MTK_EVENT_TSO_ILLEGAL	= 13,
+	MTK_EVENT_TSO_ALIGN	= 14,
+	MTK_EVENT_RFIFO_OV	= 18,
+	MTK_EVENT_RFIFO_UF	= 19,
+    MTK_MAC1_LINK = 24,
+    MTK_MAC2_LINK = 25,
+};
+
+char* mtk_fe_event_name[32] = {
+	[MTK_EVENT_FORCE]	= "Force",
+	[MTK_EVENT_WARM_CNT]	= "Warm",
+	[MTK_EVENT_COLD_CNT]	= "Cold",
+	[MTK_EVENT_TOTAL_CNT]	= "Total",
+	[MTK_EVENT_FQ_EMPTY]	= "FQ Empty",
+	[MTK_EVENT_TSO_FAIL]	= "TSO Fail",
+	[MTK_EVENT_TSO_ILLEGAL]	= "TSO Illegal",
+	[MTK_EVENT_TSO_ALIGN]	= "TSO Align",
+	[MTK_EVENT_RFIFO_OV]	= "RFIFO OV",
+	[MTK_EVENT_RFIFO_UF]	= "RFIFO UF",
+    [MTK_MAC1_LINK]	= "MAC1 LINK STAT CHANGE",
+    [MTK_MAC2_LINK]	= "MAC2 LINK STAT CHANGE",
+};
+
+
+void santi_uio_w32(struct santi_uio_ctrlblk_t *su_ctrl, u32 val, unsigned reg)
 {
-	struct santi_uio_ctrlblk_t *priv = dev_info->priv;
+	__raw_writel(val, su_ctrl->base + reg);
+}
 
-	/* Just disable the interrupt in the interrupt controller, and
-	 * remember the state so we can allow user space to enable it later.
-	 */
+u32 santi_uio_r32(struct santi_uio_ctrlblk_t *su_ctrl, unsigned reg)
+{
+	return __raw_readl(su_ctrl->base + reg);
+}
 
-	spin_lock(&priv->lock);
-	if (!test_and_set_bit(0, &priv->flags))
-		disable_irq_nosync(irq);
-	spin_unlock(&priv->lock);
+static irqreturn_t fe_irqhandler(int irq, struct uio_info *dev_info)
+{
+	struct santi_uio_ctrlblk_t *su_ctrl = dev_info->priv;
+	u32 status = 0, val = 0;
 
+    status = santi_uio_r32(su_ctrl, FE_INT_STATUS);
+    pr_info("[%s] Trigger FE Misc ISR: 0x%x\n", __func__, status);
+
+	while (status) {
+		val = ffs((unsigned int)status) - 1;
+		status &= ~(1 << val);
+
+		if ((val == MTK_EVENT_TSO_FAIL) ||
+		    (val == MTK_EVENT_TSO_ILLEGAL) ||
+		    (val == MTK_EVENT_TSO_ALIGN) ||
+		    (val == MTK_EVENT_RFIFO_OV) ||
+		    (val == MTK_EVENT_RFIFO_UF) ||
+            (val == MTK_MAC1_LINK) ||
+            (val == MTK_MAC2_LINK))
+			pr_info("[%s] Detect FE event: %s !\n", __func__,
+				mtk_fe_event_name[val]);
+	}
+    /*reset interrupt status CR*/
+    santi_uio_w32(su_ctrl, 0xFFFFFFFF, FE_INT_STATUS);
 	return IRQ_HANDLED;
 }
-#endif
 
 static int santi_uio_probe(struct platform_device *pdev)
 {
@@ -36,6 +87,7 @@ static int santi_uio_probe(struct platform_device *pdev)
     struct santi_uio_ctrlblk_t *su_ctrl = NULL;
     struct uio_info *info = NULL;
     struct resource res;
+    int err;
 
     pr_info("Entering %s\n", __func__);
 
@@ -45,6 +97,7 @@ static int santi_uio_probe(struct platform_device *pdev)
         return -ENOMEM;
 
     memset(su_ctrl, 0, sizeof(*su_ctrl));
+    su_ctrl->dev = &pdev->dev;
 
     /*get memory info from device tree*/
     fe_mem = of_parse_phandle(pdev->dev.of_node, "fe_mem", 0);
@@ -57,7 +110,6 @@ static int santi_uio_probe(struct platform_device *pdev)
         pr_err("%s: of_address_to_resource failed\n", __FUNCTION__);
         return -ENXIO;
     }
-    pr_info("%s: res.start=0x%llx, res.end=0x%llx, res_size=0x%llx \n", __FUNCTION__, res.start, res.end, resource_size(&res));
 
     /* Mapping the Virtual Memory */
     su_ctrl->base = devm_ioremap(&pdev->dev, res.start, resource_size(&res));
@@ -70,19 +122,32 @@ static int santi_uio_probe(struct platform_device *pdev)
 
     /*prepare struct uio_info*/
     info = &su_ctrl->uinfo;
+    info->priv = su_ctrl;
 
     info->name = "santi_uio_device";
     info->version = "0.0.1";
     info->mem[0].internal_addr = su_ctrl->base;
-    pr_info("%s: Virtual Physical Address 0x%llx\n", __FUNCTION__, info->mem[0].internal_addr);
     info->mem[0].addr = res.start;
-    pr_info("%s: Physical Address 0x%llx\n", __FUNCTION__, info->mem[0].addr);
     info->mem[0].size = resource_size(&res);
     info->mem[0].memtype = UIO_MEM_PHYS;
 
+    /*Setup FE Interrupt*/
+    su_ctrl->fe_irq = platform_get_irq(pdev, 0);
+    if (su_ctrl->fe_irq < 0) {
+        pr_err("%s: Can't get IRQ%d resource.\n", __FUNCTION__, 0);
+        goto err_uio_register_device;
+    }
+
+    info->irq = su_ctrl->fe_irq;
+    info->irq_flags = IRQF_TRIGGER_NONE;
+    info->handler = fe_irqhandler;
+
+    /*Enable MAC Link INT for test*/
+    santi_uio_w32(su_ctrl, 0x030C7000, FE_INT_ENABLE);
+
+
     ret = uio_register_device(&pdev->dev, info);
     if (ret) {
-        devm_iounmap(&pdev->dev, info->mem[0].internal_addr);
         pr_err("%s: uio_register_device failed: %p\n", __FUNCTION__,
                ERR_PTR(ret));
         goto err_uio_register_device;
@@ -92,6 +157,10 @@ static int santi_uio_probe(struct platform_device *pdev)
     pr_info("%s: SANTI PROBE P.A.S.S\n", __FUNCTION__);
     return 0;
 err_uio_register_device:
+    if(info->mem[0].internal_addr)
+
+        devm_iounmap(&pdev->dev, info->mem[0].internal_addr);
+    pr_info("%s: SANTI PROBE F.A.I.L\n", __FUNCTION__);
     return ret;
 }
 
@@ -100,7 +169,8 @@ static int santi_uio_remove(struct platform_device *pdev)
     // Cleanup
     struct santi_uio_ctrlblk_t *su_ctrl = platform_get_drvdata(pdev);
     struct uio_info *info = &su_ctrl->uinfo;
-    uio_unregister_device(info);
+    if (info)
+        uio_unregister_device(info);
     return 0;
 }
 

@@ -930,6 +930,8 @@
 	santi_uio: uio@15100000 {
 		compatible = "mediatek,santi_uio";
 		fe_mem = <&eth>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	sgmiisys0: syscon@10060000 {
