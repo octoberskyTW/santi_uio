@@ -53,10 +53,16 @@ clang-format -i src/*.c
 ## tools
 
 ### uioctl
-uioctl is used to test UIO device(/dev/uioX) in filesystem
-Put uioctl under openwrt/pacakge/ and enable it in menuconfig
+uioctl is used to test memory R/W UIO device(/dev/uioX) in filesystem
 ```
-cp tools/uioctl openwrt/package
 make menuconfig //select uioctl under Development catagory
-make package/uioctl/compile V=s
+make package/kernel/santi_uio/tools/uioctl/compile V=s
+```
+## apps
+
+### santi_uio_driver
+santi_uio_driver is an usersapce driver that deals with the events from santi_uio.ko kernel driver.
+```
+make menuconfig //select santi_uio_driver under Development catagory
+make package/kernel/santi_uio/app/santi_uio_driver/{clean,compile} V=s
 ```

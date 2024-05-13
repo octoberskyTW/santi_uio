@@ -55,24 +55,10 @@ u32 santi_uio_r32(struct santi_uio_ctrlblk_t *su_ctrl, unsigned reg)
 static irqreturn_t fe_irqhandler(int irq, struct uio_info *dev_info)
 {
     struct santi_uio_ctrlblk_t *su_ctrl = dev_info->priv;
-    u32 status = 0, val = 0;
 
-    status = santi_uio_r32(su_ctrl, FE_INT_STATUS);
-    pr_info("[%s] Trigger FE Misc ISR: 0x%x\n", __func__, status);
+    /*Handled interrupt in user space driver, we just disable this IRQ here*/
+    santi_uio_w32(su_ctrl, 0x00000000, FE_INT_ENABLE);
 
-    while (status) {
-        val = ffs((unsigned int) status) - 1;
-        status &= ~(1 << val);
-
-        if ((val == MTK_EVENT_TSO_FAIL) || (val == MTK_EVENT_TSO_ILLEGAL) ||
-            (val == MTK_EVENT_TSO_ALIGN) || (val == MTK_EVENT_RFIFO_OV) ||
-            (val == MTK_EVENT_RFIFO_UF) || (val == MTK_MAC1_LINK) ||
-            (val == MTK_MAC2_LINK))
-            pr_info("[%s] Detect FE event: %s !\n", __func__,
-                    mtk_fe_event_name[val]);
-    }
-    /*reset interrupt status CR*/
-    santi_uio_w32(su_ctrl, 0xFFFFFFFF, FE_INT_STATUS);
     return IRQ_HANDLED;
 }
 
