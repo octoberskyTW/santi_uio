@@ -64,5 +64,5 @@ make package/kernel/santi_uio/tools/uioctl/compile V=s
 santi_uio_driver is an usersapce driver that deals with the events from santi_uio.ko kernel driver.
 ```
 make menuconfig //select santi_uio_driver under Development catagory
-make package/kernel/santi_uio/app/santi_uio_driver/{clean,compile} V=s
+make package/kernel/santi_uio/apps/santi_uio_driver/{clean,compile} V=s
 ```

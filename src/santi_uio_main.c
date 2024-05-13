@@ -62,6 +62,30 @@ static irqreturn_t fe_irqhandler(int irq, struct uio_info *dev_info)
     return IRQ_HANDLED;
 }
 
+/* Put additional work that's required when this uio device gets opened. */
+static int santi_uio_open(struct uio_info *dev_info, struct inode *inode)
+{
+    int ret = 0;
+    struct santi_uio_ctrlblk_t *su_ctrl = dev_info->priv;
+
+    /*Enable FE MISC Interrupt IRQ*/
+    santi_uio_w32(su_ctrl, 0x030C7000, FE_INT_ENABLE);
+
+    return ret;
+}
+
+/* Put additional work that's required when this uio device gets close. */
+static int santi_uio_release(struct uio_info *dev_info, struct inode *inode)
+{
+    int ret = 0;
+    struct santi_uio_ctrlblk_t *su_ctrl = dev_info->priv;
+
+    /*Disable FE MISC Interrupt IRQ*/
+    santi_uio_w32(su_ctrl, 0x00000000, FE_INT_ENABLE);
+
+    return ret;
+}
+
 static int santi_uio_probe(struct platform_device *pdev)
 {
     // Device initialization and registration with UIO
@@ -125,9 +149,9 @@ static int santi_uio_probe(struct platform_device *pdev)
     info->irq_flags = IRQF_TRIGGER_NONE;
     info->handler = fe_irqhandler;
 
-    /*Enable MAC Link INT for test*/
-    santi_uio_w32(su_ctrl, 0x030C7000, FE_INT_ENABLE);
-
+    /*Hook open() handler*/
+    info->open = santi_uio_open;
+    info->release = santi_uio_release;
 
     ret = uio_register_device(&pdev->dev, info);
     if (ret) {
