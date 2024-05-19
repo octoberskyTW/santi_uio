@@ -94,7 +94,6 @@ static int santi_uio_probe(struct platform_device *pdev)
     struct santi_uio_ctrlblk_t *su_ctrl = NULL;
     struct uio_info *info = NULL;
     struct resource res;
-    int err;
 
     pr_info("Entering %s\n", __func__);
 
